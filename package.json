@@ -1,0 +1,25 @@
+{
+  "name": "media-transformation-utils",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "A media (img/video/audio) transformation utils collection for resize, add subtitles, speech enhancement, etc.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "node --watch --loader @esbuild-kit/esm-loader src/index.ts",
+    "start": "node --loader @esbuild-kit/esm-loader src/index.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "ffmpeg": "^0.0.4"
+  },
+  "devDependencies": {
+    "@esbuild-kit/esm-loader": "^2.5.5",
+    "@types/ffmpeg": "^1.0.4",
+    "@types/node": "^18.15.3",
+    "prettier": "^2.8.4",
+    "typescript": "^5.0.2"
+  }
+}
