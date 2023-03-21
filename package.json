@@ -13,8 +13,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@ffmpeg-installer/ffmpeg": "^1.1.0",
-    "@ffprobe-installer/ffprobe": "^2.0.0",
     "fluent-ffmpeg": "^2.1.2"
   },
   "devDependencies": {
@@ -22,6 +20,7 @@
     "@types/ffmpeg": "^1.0.4",
     "@types/fluent-ffmpeg": "^2.1.21",
     "@types/node": "^18.15.3",
+    "dotenv": "^16.0.3",
     "prettier": "^2.8.4",
     "typescript": "^5.0.2"
   }
