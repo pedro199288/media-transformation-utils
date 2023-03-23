@@ -31,44 +31,45 @@ function appFfmpeg({ assetPath }: constructorObject): ffmpeg.FfmpegCommand {
  * converts a video asset to smaller versions and gets a screenshot of the first frame
  * @param assetPath Path to video asset to convert
  */
-export function convertVideoAsset(assetPath: string) {
+export async function convertVideoAsset(assetPath: string) {
   const fileName = assetPath.split("/").pop();
   const fileNameWithoutExtension = fileName?.split(".").shift();
 
-  appFfmpeg({ assetPath })
-    // output for screenshot of first frame
-    .output(
-      `${config.basePaths.conversions}img/${fileNameWithoutExtension}.png`
-    )
-    .videoFilter([
-      {
-        filter: "crop",
-        options: {
-          w: "in_h*4/3",
-          h: "in_h",
-          x: "(in_w-ow)/2",
-          y: 0,
+  await new Promise((resolve, reject) => {
+    appFfmpeg({ assetPath })
+      .on("end", resolve)
+      .on("error", reject)
+      // output for screenshot of first frame
+      .output(
+        `${config.basePaths.conversions}img/${fileNameWithoutExtension}.png`
+      )
+      .videoFilter([
+        {
+          filter: "crop",
+          options: {
+            w: "in_h*4/3",
+            h: "in_h",
+            x: "(in_w-ow)/2",
+            y: 0,
+          },
         },
-      },
-    ])
-    .seekInput(0)
-    .frames(1)
-    .size("?x240")
+      ])
+      .seekInput(0)
+      .frames(1)
+      .size("?x240")
+      // output for smaller videos
+      .output(
+        `${config.basePaths.conversions}video/${fileNameWithoutExtension}-320x240.mp4`
+      )
+      .size("320x240")
+      .output(
+        `${config.basePaths.conversions}video/${fileNameWithoutExtension}-640x480.mp4`
+      )
+      .size("640x480")
+      // execute
+      .run();
+  });
 
-    // output for smaller videos
-    .output(
-      `${config.basePaths.conversions}video/${fileNameWithoutExtension}-320x240.mp4`
-    )
-    .size("320x240")
-    .output(
-      `${config.basePaths.conversions}video/${fileNameWithoutExtension}-640x480.mp4`
-    )
-    .size("640x480")
-
-    // execute
-    .run();
-
-  // conversion to webp
   ffmpeg()
     .input(`${config.basePaths.conversions}img/${fileNameWithoutExtension}.png`)
     .saveToFile(
