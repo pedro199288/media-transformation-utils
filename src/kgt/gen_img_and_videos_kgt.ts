@@ -2,13 +2,24 @@ import ffmpeg from "fluent-ffmpeg";
 import fs from "fs";
 import path from "path";
 import { promisify } from "util";
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
 const readdir = promisify(fs.readdir);
 const stat = promisify(fs.stat);
 const mkdir = promisify(fs.mkdir);
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 // Main execution
-const originalsDir = path.join(__dirname, "originals");
+const originDir = path.join(__dirname, "originals");
+
+// Add this near the top of the file, after other constants
+const outputDir = path.join(__dirname, "output");
+
+// watermark image
+const watermarkImagePath = path.join(__dirname, "kaizengains-watermark.png");
 
 // Queue implementation
 class Queue {
@@ -57,7 +68,7 @@ class Queue {
 
 const queue = new Queue(2); // Adjust concurrency as needed
 
-processDirectory(originalsDir)
+processDirectory(originDir)
   .then(() => console.log("All videos processed"))
   .catch((err) => console.error("Error processing videos:", err));
 
@@ -112,10 +123,12 @@ async function processVideo(
   baseDir: string,
   exerciseCategory: string
 ): Promise<void> {
-  const baseName = path.basename(inputPath, path.extname(inputPath));
+  let baseName = path.basename(inputPath, path.extname(inputPath));
+  baseName = baseName.replace(/_1$/, "");
 
-  const videoDir = path.join(baseDir, "videos");
-  const thumbnailDir = path.join(baseDir, "thumbnails");
+  // Update paths to include output directory
+  const videoDir = path.join(outputDir, "videos");
+  const imageDir = path.join(outputDir, "images");
 
   const sizes = ["large", "medium", "small"] as const;
   const dimensions: Record<
@@ -128,12 +141,15 @@ async function processVideo(
   };
 
   try {
+    // Create output directory first
+    await mkdir(outputDir, { recursive: true });
+    
     // Create necessary directories
     for (const size of sizes) {
       await mkdir(path.join(videoDir, size, exerciseCategory), {
         recursive: true,
       });
-      await mkdir(path.join(thumbnailDir, size, exerciseCategory), {
+      await mkdir(path.join(imageDir, size, exerciseCategory), {
         recursive: true,
       });
     }
@@ -157,7 +173,7 @@ async function processVideo(
       await queue.enqueue(() =>
         generateThumbnail(
           inputPath,
-          path.join(thumbnailDir, size, exerciseCategory, `${baseName}.jpg`),
+          path.join(imageDir, size, exerciseCategory, `${baseName}.jpg`),
           width,
           height
         )

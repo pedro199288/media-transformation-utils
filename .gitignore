@@ -2,3 +2,6 @@ node_modules
 assets
 conversions
 *.env
+src/kgt/output
+src/kgt/originals
+src/kgt/temp
