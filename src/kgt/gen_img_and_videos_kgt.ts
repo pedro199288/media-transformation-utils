@@ -114,48 +114,19 @@ function generateThumbnail(
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     ffmpeg.ffprobe(inputPath, (err, metadata) => {
-      if (err) {
-        return reject(err);
-      }
+      if (err) return reject(err);
 
       const duration = metadata.format.duration;
       const timestamp = duration ? duration / 2 : 0;
-      
-      // Create a sanitized temporary filename
-      const tempFileName = `temp_${Date.now()}_${path.basename(outputPath).replace(/\s+/g, '_')}`;
-      const tempPath = path.join(path.dirname(outputPath), tempFileName);
 
       ffmpeg(inputPath)
         .screenshots({
           timestamps: [timestamp],
-          filename: tempFileName,
+          filename: path.basename(outputPath),
           folder: path.dirname(outputPath),
-          size: `${width}x${height}`,
+          size: `${width}x${height}`
         })
-        .on('end', () => {
-          ffmpeg()
-            .input(tempPath)
-            .input(watermarkImagePath)
-            .complexFilter([
-              `[0:v][1:v]overlay=0:0`
-            ])
-            .outputOptions([
-              `-vf scale=${width}:${height}`
-            ])
-            .output(`"${tempPath}.processed"`)
-            .on('end', async () => {
-              try {
-                await fs.promises.unlink(tempPath);
-                await fs.promises.copyFile(`${tempPath}.processed`, outputPath);
-                await fs.promises.unlink(`${tempPath}.processed`);
-                resolve(outputPath);
-              } catch (error) {
-                reject(error);
-              }
-            })
-            .on('error', (err) => reject(err))
-            .run();
-        })
+        .on('end', () => resolve(outputPath))
         .on('error', (err) => reject(err));
     });
   });
@@ -168,58 +139,38 @@ async function processVideo(
 ): Promise<void> {
   let baseName = path.basename(inputPath, path.extname(inputPath));
   baseName = baseName.replace(/_1$/, "");
+  baseName = baseName.replace(/\s+/g, '_');
 
-  // Update paths to include output directory
   const videoDir = path.join(outputDir, "videos");
   const imageDir = path.join(outputDir, "images");
 
   const sizes = ["large", "medium", "small"] as const;
-  const dimensions: Record<
-    (typeof sizes)[number],
-    { width: number; height: number }
-  > = {
+  const dimensions: Record<(typeof sizes)[number], { width: number; height: number }> = {
     large: { width: 960, height: 540 },
     medium: { width: 392, height: 220 },
     small: { width: 178, height: 100 },
   };
 
   try {
-    // Create output directory first
     await mkdir(outputDir, { recursive: true });
     
     // Create necessary directories
     for (const size of sizes) {
-      await mkdir(path.join(videoDir, size, exerciseCategory), {
-        recursive: true,
-      });
-      await mkdir(path.join(imageDir, size, exerciseCategory), {
-        recursive: true,
-      });
+      await mkdir(path.join(videoDir, size, exerciseCategory), { recursive: true });
+      await mkdir(path.join(imageDir, size, exerciseCategory), { recursive: true });
     }
 
-    // Resize video to different dimensions
+    // Process videos first and then generate thumbnails from the processed videos
     for (const size of sizes) {
       const { width, height } = dimensions[size];
-      await queue.enqueue(() =>
-        resizeVideo(
-          inputPath,
-          path.join(videoDir, size, exerciseCategory, `${baseName}.mp4`),
-          width,
-          height
-        )
-      );
-    }
-
-    // Generate thumbnail
-    for (const size of sizes) {
-      const { width, height } = dimensions[size];
-      await queue.enqueue(() =>
-        generateThumbnail(
-          inputPath,
-          path.join(imageDir, size, exerciseCategory, `${baseName}.jpg`),
-          width,
-          height
-        )
+      const processedVideoPath = path.join(videoDir, size, exerciseCategory, `${baseName}.mp4`);
+      
+      // First process the video
+      await queue.enqueue(() => 
+        resizeVideo(inputPath, processedVideoPath, width, height).then(() => {
+          // Then generate thumbnail from the processed video
+          generateThumbnail(processedVideoPath, path.join(imageDir, size, exerciseCategory, `${baseName}.jpg`), width, height);
+        })
       );
     }
 
