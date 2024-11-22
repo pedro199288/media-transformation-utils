@@ -139,7 +139,6 @@ async function processVideo(
 ): Promise<void> {
   let baseName = path.basename(inputPath, path.extname(inputPath));
   baseName = baseName.replace(/_1$/, "");
-  baseName = baseName.replace(/\s+/g, '_');
 
   const videoDir = path.join(outputDir, "videos");
   const imageDir = path.join(outputDir, "images");
