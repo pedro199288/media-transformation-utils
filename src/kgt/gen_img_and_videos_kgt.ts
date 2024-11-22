@@ -79,13 +79,29 @@ function resizeVideo(
   height: number
 ): Promise<string> {
   return new Promise((resolve, reject) => {
-    ffmpeg(inputPath)
-      .outputOptions([
-        `-vf scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2`,
+    // Create a sanitized temporary filename
+    const tempPath = path.join(
+      path.dirname(outputPath), 
+      `temp_${Date.now()}_${path.basename(outputPath).replace(/\s+/g, '_')}`
+    );
+
+    ffmpeg()
+      .input(inputPath)
+      .input(watermarkImagePath)
+      .complexFilter([
+        `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2[scaled]`,
+        `[1:v]scale=${width}:${height}[watermark]`,
+        '[scaled][watermark]overlay=0:0'
       ])
-      .output(outputPath)
-      .on("end", () => resolve(outputPath))
-      .on("error", (err) => reject(err))
+      .output(tempPath)
+      .on('end', () => {
+        // Rename temp file to final output with original name
+        fs.rename(tempPath, outputPath, (err) => {
+          if (err) reject(err);
+          else resolve(outputPath);
+        });
+      })
+      .on('error', (err) => reject(err))
       .run();
   });
 }
@@ -104,16 +120,43 @@ function generateThumbnail(
 
       const duration = metadata.format.duration;
       const timestamp = duration ? duration / 2 : 0;
+      
+      // Create a sanitized temporary filename
+      const tempFileName = `temp_${Date.now()}_${path.basename(outputPath).replace(/\s+/g, '_')}`;
+      const tempPath = path.join(path.dirname(outputPath), tempFileName);
 
       ffmpeg(inputPath)
         .screenshots({
           timestamps: [timestamp],
-          filename: path.basename(outputPath),
+          filename: tempFileName,
           folder: path.dirname(outputPath),
-          size: `${width}x${height}`, // Width and height specified
+          size: `${width}x${height}`,
         })
-        .on("end", () => resolve(outputPath))
-        .on("error", (err) => reject(err));
+        .on('end', () => {
+          ffmpeg()
+            .input(tempPath)
+            .input(watermarkImagePath)
+            .complexFilter([
+              `[0:v][1:v]overlay=0:0`
+            ])
+            .outputOptions([
+              `-vf scale=${width}:${height}`
+            ])
+            .output(`"${tempPath}.processed"`)
+            .on('end', async () => {
+              try {
+                await fs.promises.unlink(tempPath);
+                await fs.promises.copyFile(`${tempPath}.processed`, outputPath);
+                await fs.promises.unlink(`${tempPath}.processed`);
+                resolve(outputPath);
+              } catch (error) {
+                reject(error);
+              }
+            })
+            .on('error', (err) => reject(err))
+            .run();
+        })
+        .on('error', (err) => reject(err));
     });
   });
 }
