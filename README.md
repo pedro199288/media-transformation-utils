@@ -30,4 +30,12 @@ npm run gen-img-and-videos-kgt
 
 ### To upload to the server:
 
-TODO:
+Upload files (will overwrite existing files, should not be a problem as I will only upload new exercises):
+```bash
+scp -r ~/projects/mine/media-transformation-utils/src/kgt/output/* user@<ip-address>:/path/to/project/assets
+```
+Another alternative that I have not tested:
+Upload new files (skip existing ones):
+```bash
+rsync -avz --ignore-existing /path/to/local/folder/ user@remote-server:/path/to/remote/folder/
+```
