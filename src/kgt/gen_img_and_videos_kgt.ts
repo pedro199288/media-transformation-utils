@@ -153,14 +153,20 @@ async function processVideo(
   try {
     await mkdir(outputDir, { recursive: true });
     
-    // Create necessary directories
+    // Create necessary directories, skip if category is "originals"
     for (const size of sizes) {
+      if (exerciseCategory === "originals") {
+        continue;
+      }
       await mkdir(path.join(videoDir, size, exerciseCategory), { recursive: true });
       await mkdir(path.join(imageDir, size, exerciseCategory), { recursive: true });
     }
 
     // Process videos first and then generate thumbnails from the processed videos
     for (const size of sizes) {
+      if (exerciseCategory === "originals") {
+        continue;
+      }
       const { width, height } = dimensions[size];
       const processedVideoPath = path.join(videoDir, size, exerciseCategory, `${baseName}.mp4`);
       
