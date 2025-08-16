@@ -1,9 +1,11 @@
+// to execute: npm run kgt
+// or: node --loader @esbuild-kit/esm-loader src/kgt/gen_img_and_videos_kgt.ts
 import ffmpeg from "fluent-ffmpeg";
 import fs from "fs";
 import path from "path";
 import { promisify } from "util";
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
+import { fileURLToPath } from "url";
+import { dirname } from "path";
 
 const readdir = promisify(fs.readdir);
 const stat = promisify(fs.stat);
@@ -81,8 +83,8 @@ function resizeVideo(
   return new Promise((resolve, reject) => {
     // Create a sanitized temporary filename
     const tempPath = path.join(
-      path.dirname(outputPath), 
-      `temp_${Date.now()}_${path.basename(outputPath).replace(/\s+/g, '_')}`
+      path.dirname(outputPath),
+      `temp_${Date.now()}_${path.basename(outputPath).replace(/\s+/g, "_")}`
     );
 
     ffmpeg()
@@ -91,17 +93,17 @@ function resizeVideo(
       .complexFilter([
         `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2[scaled]`,
         `[1:v]scale=${width}:${height}[watermark]`,
-        '[scaled][watermark]overlay=0:0'
+        "[scaled][watermark]overlay=0:0",
       ])
       .output(tempPath)
-      .on('end', () => {
+      .on("end", () => {
         // Rename temp file to final output with original name
         fs.rename(tempPath, outputPath, (err) => {
           if (err) reject(err);
           else resolve(outputPath);
         });
       })
-      .on('error', (err) => reject(err))
+      .on("error", (err) => reject(err))
       .run();
   });
 }
@@ -116,18 +118,18 @@ function generateThumbnail(
     ffmpeg.ffprobe(inputPath, (err, metadata) => {
       if (err) return reject(err);
 
-      const duration = metadata.format.duration;
-      const timestamp = duration ? duration / 2 : 0;
+      // const duration = metadata.format.duration;
+      const timestamp = 0; // duration ? duration / 2 : 0;
 
       ffmpeg(inputPath)
         .screenshots({
           timestamps: [timestamp],
           filename: path.basename(outputPath),
           folder: path.dirname(outputPath),
-          size: `${width}x${height}`
+          size: `${width}x${height}`,
         })
-        .on('end', () => resolve(outputPath))
-        .on('error', (err) => reject(err));
+        .on("end", () => resolve(outputPath))
+        .on("error", (err) => reject(err));
     });
   });
 }
@@ -143,8 +145,19 @@ async function processVideo(
   const videoDir = path.join(outputDir, "videos");
   const imageDir = path.join(outputDir, "images");
 
-  const sizes = ["large", "medium", "small"] as const;
-  const dimensions: Record<(typeof sizes)[number], { width: number; height: number }> = {
+  const sizes = [
+    // "fullhd",
+    // "hd",
+    "large",
+    "medium",
+    "small",
+  ] as const;
+  const dimensions: Record<
+    (typeof sizes)[number],
+    { width: number; height: number }
+  > = {
+    // fullhd: { width: 1920, height: 1080 },
+    // hd: { width: 1280, height: 720 },
     large: { width: 960, height: 540 },
     medium: { width: 392, height: 220 },
     small: { width: 178, height: 100 },
@@ -152,14 +165,18 @@ async function processVideo(
 
   try {
     await mkdir(outputDir, { recursive: true });
-    
+
     // Create necessary directories, skip if category is "originals"
     for (const size of sizes) {
       if (exerciseCategory === "originals") {
         continue;
       }
-      await mkdir(path.join(videoDir, size, exerciseCategory), { recursive: true });
-      await mkdir(path.join(imageDir, size, exerciseCategory), { recursive: true });
+      await mkdir(path.join(videoDir, size, exerciseCategory), {
+        recursive: true,
+      });
+      await mkdir(path.join(imageDir, size, exerciseCategory), {
+        recursive: true,
+      });
     }
 
     // Process videos first and then generate thumbnails from the processed videos
@@ -168,13 +185,23 @@ async function processVideo(
         continue;
       }
       const { width, height } = dimensions[size];
-      const processedVideoPath = path.join(videoDir, size, exerciseCategory, `${baseName}.mp4`);
-      
+      const processedVideoPath = path.join(
+        videoDir,
+        size,
+        exerciseCategory,
+        `${baseName}.mp4`
+      );
+
       // First process the video
-      await queue.enqueue(() => 
+      await queue.enqueue(() =>
         resizeVideo(inputPath, processedVideoPath, width, height).then(() => {
           // Then generate thumbnail from the processed video
-          generateThumbnail(processedVideoPath, path.join(imageDir, size, exerciseCategory, `${baseName}.jpg`), width, height);
+          generateThumbnail(
+            processedVideoPath,
+            path.join(imageDir, size, exerciseCategory, `${baseName}.jpg`),
+            width,
+            height
+          );
         })
       );
     }

@@ -5,3 +5,4 @@ conversions
 src/kgt/output
 src/kgt/originals
 src/kgt/temp
+.DS_Store
